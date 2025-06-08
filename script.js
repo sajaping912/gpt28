@@ -414,7 +414,7 @@ const PETAL_DRIFT_X_PPS_BASE = 30;
 const PETAL_FLUTTER_AMPLITUDE_BASE = 3.5;
 const PETAL_FLUTTER_SPEED_BASE = 3.0;
 
-const SENTENCE_VERTICAL_ADJUSTMENT = -86;
+const SENTENCE_VERTICAL_ADJUSTMENT = -86 + 100; // 100px 아래로 이동 (14)
 const ANSWER_OFFSET_Y = 82;
 const LINE_HEIGHT = 30;
 const PLAYER_TOUCH_Y_OFFSET = 15;
@@ -2314,7 +2314,7 @@ function startFireworks(sentenceTextForFireworks, globalSentenceIndex, explosion
 
     fireworks = [];
     fireworksState = {
-        t: 0, phase: "explode", holdDuration: 60, explodeDuration: 180, gatherDuration: 120, // 120으로 증가 (더 느리게)
+        t: 0, phase: "explode", holdDuration: 60, explodeDuration: 180, gatherDuration: 45,
         originX: centerX, originY: explosionY,
         sentenceTextToDisplayAfter: sentenceTextForFireworks,
         finalSentenceIndex: globalSentenceIndex,
@@ -2432,33 +2432,11 @@ function updateFireworks() {
             }
             wordIndexInFireworks++;
         }
-    }    // 철새 이동 애니메이션: 단어들을 원의 맨 위부터 시계방향으로 순차적으로 이동
-    // 먼저 각도 기준으로 정렬하여 맨 위부터 시계방향 순서를 만들기
-    const sortedFireworks = [...fireworks].map((fw, originalIndex) => ({ fw, originalIndex }))
-      .sort((a, b) => {
-        // -Math.PI/2 (맨 위)에서 시작해서 시계방향으로 정렬
-        const angleA = a.fw.angle < -Math.PI/2 ? a.fw.angle + 2*Math.PI : a.fw.angle;
-        const angleB = b.fw.angle < -Math.PI/2 ? b.fw.angle + 2*Math.PI : b.fw.angle;
-        return angleA - angleB;
-      });
+    }
 
     fireworks.forEach((fw) => {
-      // 정렬된 순서에서 현재 단어의 인덱스 찾기
-      const sortedIndex = sortedFireworks.findIndex(item => item.fw === fw);
-      
-      // 각 단어마다 다른 시작 시간 (철새처럼 순차적, 간격을 줄임)
-      const wordDelay = sortedIndex * 0.08; // 8% 간격으로 시작 (더 부드럽게)
-      const adjustedProgress = Math.max(0, progress - wordDelay);
-      const wordProgress = Math.min(adjustedProgress / (1 - wordDelay), 1);
-      
-      if (wordProgress > 0) {
-        // 부드러운 ease-out-cubic 이징
-        const wordEase = 1 - Math.pow(1 - wordProgress, 3);
-        
-        // 더 느리고 부드러운 이동 (0.06으로 더 감소)
-        fw.x += (fw.targetX - fw.x) * wordEase * 0.06;
-        fw.y += (fw.targetY - fw.y) * wordEase * 0.06;
-      }
+      fw.x += (fw.targetX - fw.x) * ease * 0.2;
+      fw.y += (fw.targetY - fw.y) * ease * 0.2;
     });
     centerAlpha += (1.0 - centerAlpha) * ease * 0.15;
 
