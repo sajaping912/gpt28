@@ -1026,7 +1026,7 @@ const WORD_ANIM_MAX_HEIGHT = 18;
 
 // --- START: 의문사 복제본 관련 변수들 ---
 let questionWordClones = []; // 생성된 의문사 복제본들을 저장
-const CLONE_OFFSET_Y = 50; // 의문사 복제본이 원본에서 위로 얼마나 떨어져 있을지
+const CLONE_OFFSET_Y = 40; // 의문사 복제본이 원본에서 위로 얼마나 떨어져 있을지 (50에서 40으로 변경하여 10px 아래로)
 let cloneCreatedForCurrentQuestion = false; // 현재 질문에서 복제본이 이미 생성되었는지 추적
 // --- END: 의문사 복제본 관련 변수들 ---
 
