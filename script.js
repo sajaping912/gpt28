@@ -415,7 +415,7 @@ const PETAL_FLUTTER_AMPLITUDE_BASE = 3.5;
 const PETAL_FLUTTER_SPEED_BASE = 3.0;
 
 const SENTENCE_VERTICAL_ADJUSTMENT = -86 + 100; // 100px 아래로 이동 (14)
-const ANSWER_OFFSET_Y = 82;
+const ANSWER_OFFSET_Y = 72; // 답변 문장을 위로 10px 이동 (82에서 72로)
 const LINE_HEIGHT = 30;
 const PLAYER_TOUCH_Y_OFFSET = 15;
 
