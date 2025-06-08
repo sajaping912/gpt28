@@ -1037,6 +1037,18 @@ const SUBJECT_AUX_CLONE_OFFSET_X = 15; // 주어+조동사 복제본이 의문�
 let cloneCreatedForCurrentAnswer = false; // 현재 답변에서 복제본이 이미 생성되었는지 추적
 // --- END: 주어+조동사 복제본 관련 변수들 ---
 
+// --- START: 화살표 애니메이션 관련 변수들 ---
+let arrowAnimationActive = false; // 화살표 애니메이션이 활성 상태인지
+let arrowAnimationProgress = 0; // 화살표 애니메이션 진행도 (0~1)
+let arrowAnimationStartTime = 0; // 화살표 애니메이션 시작 시간
+const ARROW_ANIMATION_DURATION = 1050; // 화살표 애니메이션 지속 시간 (ms) - 30% 더 빠르게
+const ARROW_ANIMATION_DELAY = 1400; // 다음 애니메이션까지의 지연 시간 (ms) - 30% 더 빠르게
+let arrowStartX = 0; // 화살표 시작점 X 좌표 (물음표 오른쪽 끝)
+let arrowStartY = 0; // 화살표 시작점 Y 좌표
+let arrowEndX = 0; // 화살표 끝점 X 좌표 (첫 글자 왼쪽 위)
+let arrowEndY = 0; // 화살표 끝점 Y 좌표
+// --- END: 화살표 애니메이션 관련 변수들 ---
+
 // --- START: 동사 복제본 관련 변수들 ---
 let verbClones = []; // 생성된 동사 복제본들을 저장
 // VERB_CLONE_OFFSET_X는 동적으로 계산됨 (adjustedSpaceWidth와 동일)
@@ -1236,6 +1248,8 @@ function clearQuestionWordClones() {
   // 의문사 복제본이 사라질 때 주어+조동사 복제본과 동사 복제본도 동시에 제거
   clearSubjectAuxClones();
   clearVerbClones();
+  // 화살표 애니메이션도 중지
+  stopArrowAnimation();
   console.log("🧹 Question word clones cleared");
 }
 
@@ -1291,10 +1305,14 @@ function createSubjectAuxClone(subjectAnimation, auxAnimation) {
       currentY: currentAnimationHighPoint,
       width: charWidth
     });
-    currentX += charWidth;
-  });
+    currentX += charWidth;  });
   
   subjectAuxClones.push(clone);
+  
+  // 주어+조동사 복제본이 생성되면 화살표 애니메이션 시작
+  setTimeout(() => {
+    startArrowAnimation();
+  }, 400); // 복제본 이동 애니메이션이 완료된 후 화살표 시작 (300ms + 100ms 여유)
 }
 
 // 주어+조동사 복제본 업데이트 함수
@@ -1630,6 +1648,84 @@ function updateBounceAnimations(currentTime) {
 function clearBounceAnimations() {
   activeBounceAnimations = [];
 }
+
+// --- START: 화살표 애니메이션 관련 함수들 ---
+
+// 화살표 애니메이션 시작 함수
+function startArrowAnimation() {
+  if (!questionWordClones.length || !subjectAuxClones.length) {
+    console.log("❌ Cannot start arrow animation: missing clones");
+    return;
+  }  // 물음표("?") 문자의 정확한 위치 찾기
+  const questionClone = questionWordClones[0];
+  if (questionClone.charPositions && questionClone.charPositions.length > 0) {
+    // 디버깅: 모든 문자 출력
+    console.log("🔍 All characters in question clone:", questionClone.charPositions.map(cp => cp.char));
+    
+    // 물음표 문자를 찾기
+    let questionMarkChar = null;
+    for (let i = 0; i < questionClone.charPositions.length; i++) {
+      const char = questionClone.charPositions[i];
+      if (char.char === '?') {
+        questionMarkChar = char;
+        console.log("✅ Found question mark at position:", i, "coordinates:", char.x, char.y);
+        break;
+      }
+    }
+    
+    // 물음표를 찾지 못한 경우 마지막 문자 사용 (fallback)
+    if (!questionMarkChar) {
+      questionMarkChar = questionClone.charPositions[questionClone.charPositions.length - 1];
+      console.log("⚠️ Question mark not found, using last character:", questionMarkChar.char);
+    }    // 물음표의 중간 지점에서 시작 (25px 위로 이동 - 10px 아래로 - 5px 더 아래로 = 10px 위로, x축 우측으로 17px 이동)
+    arrowStartX = questionMarkChar.x + (questionMarkChar.width / 2) + 17; // 물음표 중간 지점 + 17px 우측 (3px 왼쪽으로 이동)
+    arrowStartY = questionClone.currentY - 25 + 10 + 5; // 25px 위로 이동 후 10px 아래로 + 5px 더 아래로 = 10px 위로
+    console.log("🏹 Arrow start position set to:", arrowStartX, arrowStartY);
+  }  // 주어+조동사 복제본의 첫 번째 글자 좌측 아래쪽 모서리 위치 계산 (우하향, 25px 위로 이동)
+  const subjectAuxClone = subjectAuxClones[0];
+  if (subjectAuxClone.charPositions && subjectAuxClone.charPositions.length > 0) {
+    const firstChar = subjectAuxClone.charPositions[0];    // 원래 끝점 계산 (10px 아래로 이동 + 5px 더 아래로, x축 우측으로 20px 이동)
+    const originalEndX = firstChar.x + 10 + 20; // 첫 글자 좌측 모서리에서 우측으로 10px 이동 + 20px 추가 이동
+    const originalEndY = firstChar.currentY + 15 - 25 + 10 + 5; // 첫 글자 아래쪽 모서리로 15px 아래 - 25px 위 + 10px 아래 + 5px 더 아래 = 5px 아래
+    
+    // 화살표 길이를 더 줄이기 위해 끝점을 시작점 쪽으로 94.38% 이동 (7.03%에서 20% 더 줄임)
+    arrowEndX = arrowStartX + (originalEndX - arrowStartX) * 0.0562; // 5.62% 거리로 줄임 (7.03%에서 20% 더 줄임)
+    arrowEndY = arrowStartY + (originalEndY - arrowStartY) * 0.0562; // 5.62% 거리로 줄임
+  }
+  
+  arrowAnimationActive = true;
+  arrowAnimationStartTime = performance.now();
+  arrowAnimationProgress = 0;
+  
+  console.log(`🏹 Arrow animation started: (${arrowStartX}, ${arrowStartY}) → (${arrowEndX}, ${arrowEndY})`);
+}
+
+// 화살표 애니메이션 업데이트 함수
+function updateArrowAnimation(currentTime) {
+  if (!arrowAnimationActive) return;
+  
+  const elapsedTime = currentTime - arrowAnimationStartTime;
+  const totalCycleTime = ARROW_ANIMATION_DURATION + ARROW_ANIMATION_DELAY;
+  const cycleProgress = (elapsedTime % totalCycleTime) / totalCycleTime;
+  
+  if (cycleProgress < (ARROW_ANIMATION_DURATION / totalCycleTime)) {
+    // 애니메이션 진행 중
+    const animProgress = (elapsedTime % totalCycleTime) / ARROW_ANIMATION_DURATION;
+    arrowAnimationProgress = Math.min(animProgress, 1.0);
+  } else {
+    // 지연 시간 중 (화살표 숨김)
+    arrowAnimationProgress = 0;
+  }
+}
+
+// 화살표 애니메이션 중지 함수
+function stopArrowAnimation() {
+  arrowAnimationActive = false;
+  arrowAnimationProgress = 0;
+  console.log("🏹 Arrow animation stopped");
+}
+
+// --- END: 화살표 애니메이션 관련 함수들 ---
 
 // --- END: 바운스 애니메이션 관련 함수들 ---
 // --- END: Word Animation Variables and Functions ---
@@ -2127,6 +2223,51 @@ function drawCenterSentence() {
             
             ctx.textAlign = "left"; // 다시 기본값으로 복원
         });
+          ctx.restore();
+    }
+
+    // 화살표 애니메이션 렌더링 (의문사 복제본과 주어+조동사 복제본 사이)
+    if (arrowAnimationActive && arrowAnimationProgress > 0) {
+        ctx.save();
+        ctx.globalAlpha = centerAlpha * 0.8; // 약간 투명하게
+        
+        // 현재 애니메이션 진행도에 따른 화살표 위치 계산
+        const currentX = arrowStartX + (arrowEndX - arrowStartX) * arrowAnimationProgress;
+        const currentY = arrowStartY + (arrowEndY - arrowStartY) * arrowAnimationProgress;
+        
+        // 화살표 방향 계산
+        const deltaX = arrowEndX - arrowStartX;
+        const deltaY = arrowEndY - arrowStartY;
+        const angle = Math.atan2(deltaY, deltaX);
+          // 화살표 그리기
+        ctx.strokeStyle = '#FF6B6B'; // 빨간색 화살표
+        ctx.fillStyle = '#FF6B6B';
+        ctx.lineWidth = 1.6; // 20% 감소 (2 → 1.6)
+        ctx.lineCap = 'round';
+        
+        const arrowLength = 12; // 20% 감소 (15 → 12)
+        const arrowHeadLength = 6.4; // 20% 감소 (8 → 6.4)
+        const arrowHeadAngle = Math.PI / 6; // 30도
+        
+        // 화살표 몸체 그리기
+        ctx.beginPath();
+        ctx.moveTo(currentX - Math.cos(angle) * arrowLength, currentY - Math.sin(angle) * arrowLength);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        
+        // 화살표 머리 그리기
+        ctx.beginPath();
+        ctx.moveTo(currentX, currentY);
+        ctx.lineTo(
+          currentX - arrowHeadLength * Math.cos(angle - arrowHeadAngle),
+          currentY - arrowHeadLength * Math.sin(angle - arrowHeadAngle)
+        );
+        ctx.moveTo(currentX, currentY);
+        ctx.lineTo(
+          currentX - arrowHeadLength * Math.cos(angle + arrowHeadAngle),
+          currentY - arrowHeadLength * Math.sin(angle + arrowHeadAngle)
+        );
+        ctx.stroke();
         
         ctx.restore();
     }
@@ -2695,10 +2836,14 @@ function update(delta) {
   if (verbClones.length > 0) {
     updateVerbClones(performance.now());
   }
-  
-  // Update bounce animations
+    // Update bounce animations
   if (activeBounceAnimations.length > 0) {
     updateBounceAnimations(performance.now());
+  }
+  
+  // Update arrow animation
+  if (arrowAnimationActive) {
+    updateArrowAnimation(performance.now());
   }
 }
 
